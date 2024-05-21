@@ -47,6 +47,7 @@ cfg_if::cfg_if! {
 
         #[cfg(feature = "irq")]
         mod timers;
+        pub use timers::*;
 
         #[doc(cfg(feature = "multitask"))]
         pub use self::api::*;

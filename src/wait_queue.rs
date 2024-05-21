@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use spinlock::SpinRaw;
 
 use crate::{
-    schedule::{add_to_wait_queue, in_wait_queue, remove_from_wait_queue},
+    schedule::{in_wait_queue, remove_from_wait_queue},
     AxRunQueue, AxTaskRef, CurrentTask, RUN_QUEUE,
 };
 
@@ -71,7 +71,6 @@ impl WaitQueue {
     pub fn wait(&self) {
         RUN_QUEUE.lock().block_current(|task| {
             // task.set_in_wait_queue(true);
-            add_to_wait_queue(&task);
             self.queue.lock().push_back(task)
         });
         self.cancel_events(crate::current());
@@ -93,7 +92,7 @@ impl WaitQueue {
             }
             rq.block_current(|task| {
                 // task.set_in_wait_queue(true);
-                add_to_wait_queue(&task);
+                // add_to_wait_queue(&task);
                 self.queue.lock().push_back(task);
             });
         }
@@ -104,7 +103,7 @@ impl WaitQueue {
     /// notify it, or the given duration has elapsed.
     #[cfg(feature = "irq")]
     pub fn wait_timeout(&self, dur: core::time::Duration) -> bool {
-        use crate::schedule::{add_to_wait_queue, in_wait_queue};
+        use crate::schedule::in_wait_queue;
         let curr = crate::current();
         let deadline = axhal::time::current_time() + dur;
         debug!(
@@ -116,7 +115,6 @@ impl WaitQueue {
 
         RUN_QUEUE.lock().block_current(|task| {
             // task.set_in_wait_queue(true);
-            add_to_wait_queue(&task);
             self.queue.lock().push_back(task)
         });
         // let timeout = curr.in_wait_queue(); // still in the wait queue, must have timed out
@@ -153,7 +151,6 @@ impl WaitQueue {
             }
             rq.block_current(|task| {
                 // task.set_in_wait_queue(true);
-                add_to_wait_queue(&task);
                 self.queue.lock().push_back(task);
             });
         }
@@ -183,7 +180,6 @@ impl WaitQueue {
             let mut rq = RUN_QUEUE.lock();
             if let Some(task) = self.queue.lock().pop_front() {
                 // task.set_in_wait_queue(false);
-                remove_from_wait_queue(&task);
                 rq.unblock_task(task, resched);
             } else {
                 break;
@@ -201,7 +197,6 @@ impl WaitQueue {
         let mut wq = self.queue.lock();
         if let Some(index) = wq.iter().position(|t| Arc::ptr_eq(t, task)) {
             // task.set_in_wait_queue(false);
-            remove_from_wait_queue(task);
             rq.unblock_task(wq.remove(index).unwrap(), resched);
             true
         } else {
@@ -212,7 +207,6 @@ impl WaitQueue {
     pub(crate) fn notify_one_locked(&self, resched: bool, rq: &mut AxRunQueue) -> bool {
         if let Some(task) = self.queue.lock().pop_front() {
             // task.set_in_wait_queue(false);
-            remove_from_wait_queue(&task);
             rq.unblock_task(task, resched);
             true
         } else {
@@ -223,7 +217,6 @@ impl WaitQueue {
     pub(crate) fn notify_all_locked(&self, resched: bool, rq: &mut AxRunQueue) {
         while let Some(task) = self.queue.lock().pop_front() {
             // task.set_in_wait_queue(false);
-            remove_from_wait_queue(&task);
             rq.unblock_task(task, resched);
         }
     }

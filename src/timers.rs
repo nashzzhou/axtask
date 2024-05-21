@@ -5,7 +5,7 @@ use spinlock::SpinNoIrq;
 use timer_list::{TimeValue, TimerEvent, TimerList};
 
 use crate::{
-    schedule::{add_to_timer_list, remove_from_timer_list},
+    schedule::{add_to_timer_list, remove_from_timer_list, in_timer_list},
     AxTaskRef, RUN_QUEUE,
 };
 
@@ -35,6 +35,10 @@ pub fn cancel_alarm(task: &AxTaskRef) {
     // task.set_in_timer_list(false);
     remove_from_timer_list(task);
     timers.cancel(|t| Arc::ptr_eq(&t.0, task));
+}
+
+pub fn is_in_timer_list(task: &AxTaskRef) -> bool {
+    in_timer_list(task)
 }
 
 pub fn check_events() {

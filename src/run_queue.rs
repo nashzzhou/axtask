@@ -8,7 +8,7 @@ use scheduler::BaseScheduler;
 use spinlock::SpinNoIrq;
 use taskctx::TaskState;
 
-use crate::schedule::notify_wait_for_exit;
+use crate::schedule::{add_to_wait_queue, notify_wait_for_exit, remove_from_wait_queue};
 use crate::task::{new_init_task, new_task, CurrentTask};
 use crate::{AxTaskRef, Scheduler, WaitQueue};
 
@@ -139,7 +139,7 @@ impl AxRunQueue {
     where
         F: FnOnce(AxTaskRef),
     {
-        let curr = crate::current();
+        let curr = crate::current().clone();
         debug!("task block: {}", curr.id_name());
         assert!(curr.is_running());
         assert!(!curr.is_idle());
@@ -149,13 +149,15 @@ impl AxRunQueue {
         assert!(curr.can_preempt(1));
 
         curr.set_state(TaskState::Blocked);
-        wait_queue_push(curr.clone());
+        add_to_wait_queue(&curr);
+        wait_queue_push(curr);
         self.resched(false);
     }
 
     pub fn unblock_task(&mut self, task: AxTaskRef, resched: bool) {
         debug!("task unblock: {}", task.id_name());
         if task.is_blocked() {
+            remove_from_wait_queue(&task);
             task.set_state(TaskState::Ready);
             self.scheduler.add_task(task); // TODO: priority
             if resched {
